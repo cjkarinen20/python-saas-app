@@ -6,6 +6,8 @@ from enum import Enum
 from typing import Optional, List
 
 class User(SQLModel, table=True):
+    __tablename__ = "app_users"
+    
     id: Optional[int] = Field(default=None, primary_key=True)
     email: str = Field(unique = True, index = True)
     password_hash: str

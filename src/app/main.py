@@ -1,12 +1,27 @@
 # app/main.py
 
 from fastapi import FastAPI
+from app.database import create_db_and_tables
+from contextlib import asynccontextmanager
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Load the ML model
+    create_db_and_tables()
+    yield
+    # Clean up the ML models and release the resources
+    # Run cleanup
+    
 app = FastAPI( 
     title="Story Generation SaaS API",
     description="AI-powered story generation with credit system",
     version="1.0.0"
+    lifespan = lifespan
 )
+
+app.on_event("startup")
+def on_startup():
+    create_db_and_tables()
 
 @app.get("/")
 def root():

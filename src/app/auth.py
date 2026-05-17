@@ -66,3 +66,63 @@ def hash_api_key(api_key: str) -> str:
 def verify_api_key(api_key: str, stored_hash: str) -> bool:
     computed_hash = hash_api_key(api_key)
     return hmac.compare_digest(computed_hash, stored_hash)
+
+async def get_current_user(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    session: Session = Depends(get_session)
+) -> User:
+    # Get current userfrom JWT token
+    credentials_exception = HTTPException(
+        status_code = status.HTTP_401_UNAUTHORIZED,
+        detail = "Could not validate credentials",
+        headers = {"WWW-Authenticate": "Bearer"},
+    )
+    email = verify_token(credentials = credentials)
+    
+    if email is None: 
+        raise credentials_exception
+    
+    statement = select(User).where(User.email == email)
+    
+    user = session.exec(statement).first()
+    
+    if user is None:
+        raise credentials_exception
+    
+    return user
+
+async def get_current_user(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    session: Session = Depends(get_session)
+) -> tuple[User, ApiKey]:
+    # Get current userfrom JWT token
+    credentials_exception = HTTPException(
+        status_code = status.HTTP_401_UNAUTHORIZED,
+        detail = "Could not validate credentials",
+        headers = {"WWW-Authenticate": "Bearer"},
+    )
+    
+    api_key = credentials.credentials
+    
+    if not api_key.startswith("sk_live_"):
+        raise credentials_exception
+    
+    api_key_hash = hash_api_key(api_key)
+    
+    statement = select(ApiKey).where(
+        ApiKey.key_hash == api_key_hash,
+        ApiKey.is_active == True
+    )
+    
+    db_api_key = session.exec(statement).first()
+    
+    if db_api_key is None:
+        raise credentials_exception
+    
+    statement = select(User).where(User.id == db_api_key.user_id)
+    user = session.exec(statement).first()
+    
+    if user is None:
+        raise credentials_exception
+    
+    return user, db_api_key

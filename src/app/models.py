@@ -5,7 +5,6 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Optional, List
 
-
 class User(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     email: str = Field(unique = True, index = True)
@@ -36,3 +35,46 @@ class UsageEvent(SQLModel, table = True):
     cost_credits: int = Field(default = 1)
     created_at: datetime = Field(default_factory = datetime.now(timezone.utc))
     user: User = Relationship(back_populates = "usage events")
+    
+class UserCreate(SQLModel):
+    email: str
+    password: str
+
+class UserLogin(SQLModel):
+    email: str
+    password: str
+
+class UserResponse(SQLModel):
+    id: int
+    email: str
+    credits: int
+    created_at: datetime
+    is_active: bool
+    
+class ApiKeyCreateResponse(SQLModel):
+    id: int
+    name: str
+    api_key: str # Full key only shown once
+    created_at: datetime
+
+class StoryRequest(SQLModel):
+    prompt: str
+    style: Optional[str] = "adventure"
+    
+class StoryResponse(SQLModel):
+    story: int
+    tokens_used: int
+    credits_used: int
+    remaining_credits: int 
+    
+class CreditsResponse(SQLModel):
+    credits: int
+    
+class UsageResponse(SQLModel):
+    id: int
+    prompt: str
+    story: str
+    tokens_used: int
+    cost_credits: int
+    created_at: datetime
+    

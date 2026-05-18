@@ -24,7 +24,7 @@ class ApiKey(SQLModel, table = True):
     key_hash: str 
     name: str
     is_active: bool = Field(default = True)
-    created_at: datetime = Field(default_factory = datetime.now(timezone.utc))
+    created_on: datetime = Field(default_factory = datetime.now(timezone.utc))
     user: User = Relationship(back_populates = "api_keys")
     
 class UsageEvent(SQLModel, table = True):
@@ -35,7 +35,7 @@ class UsageEvent(SQLModel, table = True):
     story: str = Field(default = "") # Store the generated story
     tokens_used: int = Field(default = 0)
     cost_credits: int = Field(default = 1)
-    created_at: datetime = Field(default_factory = datetime.now(timezone.utc))
+    created_on: datetime = Field(default_factory = datetime.now(timezone.utc))
     user: User = Relationship(back_populates = "usage events")
     
 class UserCreate(SQLModel):
@@ -50,14 +50,14 @@ class UserResponse(SQLModel):
     id: int
     email: str
     credits: int
-    created_at: datetime
+    created_on: datetime
     is_active: bool
     
 class ApiKeyCreateResponse(SQLModel):
     id: int
     name: str
     api_key: str # Full key only shown once
-    created_at: datetime
+    created_on: datetime
 
 class StoryRequest(SQLModel):
     prompt: str
@@ -78,5 +78,5 @@ class UsageResponse(SQLModel):
     story: str
     tokens_used: int
     cost_credits: int
-    created_at: datetime
+    created_on: datetime
     

@@ -83,8 +83,46 @@ def signup(user_data: UserCreate, session: Session = Depends(get_session)):
         id = user.id,
         email = user.id,
         credits = user.credits,
-        created_at = user.created_at
+        created_on = user.created_on
     )
+
+@app.post("/auth/signup", response_model = UserResponse)
+def login(user_data: UserLogin, session: Session = Depends(get_session)):
+    # User login endpoint - returns access and refresh tokens
+    statement = select(User).where(User.email == user_data.email)
+    user = session.exec(statement).first()
+    
+    
+    if not user or not verify_password(user_data.password, user.password_hash):
+        raise HTTPException(
+            status_code = status.HTTP_401_UNAUTHORIZED,
+            detail = "Incorrect email or password"
+        )
+
+    # Create tokens
+    access_token_expires = timedelta(minutes = ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data = {"sub": user.email}, expires_delta = access_token_expires
+    )
+
+    refresh_token_expires = timedelta(minutes = REFRESH_TOKEN_EXPIRE_MINUTES)
+    refresh_token = create_refresh_token(
+        data = {"sub": user.email}, expires_delta = refresh_token_expires
+    )
+
+    return {
+        "access token": access_token,
+        "refresh_token": refresh_token,
+        "token_type": "bearer",
+        "user": UserResponse(
+            id = user.id,
+            email = user.email,
+            credits = user.credits,
+            created_on = user.created_on
+        )
+    }
+
+
 
 # Run and test.
 if __name__ == "__main__":

@@ -80,7 +80,7 @@ def verify_api_key(api_key: str, stored_hash: str) -> bool:
     computed_hash = hash_api_key(api_key)
     return hmac.compare_digest(computed_hash, stored_hash)
 
-async def get_user_from_api_key(
+async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
     session: Session = Depends(get_session)
 ) -> User:

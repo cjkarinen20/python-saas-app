@@ -15,7 +15,7 @@ from app.models import (
 from app.auth import (
     hash_password, verify_password, create_access_token, create_refresh_token,
     generate_api_key, hash_api_key, verify_token,
-    get_user_from_api_key, get_user_from_api_key
+    get_current_user, get_user_from_api_key
 )
 
 from app.config import ACCESS_TOKEN_EXPIRE_MINUTES, REFRESH_TOKEN_EXPIRE_MINUTES
@@ -152,6 +152,40 @@ def refresh_token_endpoint(request: dict, session: Session = Depends(get_session
         "token_type": "bearer"
     }
     
+@app.post("/api-keys", response_model = ApiKeyCreateResponse)
+def create_api_key(
+    api_key_data: ApiKeyCreate,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session)
+):
+        # Create new API key for authenticated user
+        api_key = generate_api_key()
+        key_hash = hash_api_key(api_key)
+        
+        # Store in DB
+        db_api_key = ApiKey(
+            user_id = current_user.id,
+            key_hash = key_hash,
+            name = api_key_data.name
+        )
+        
+        session.add(db_api_key)
+        session.commit()
+        session.refresh(db_api_key)
+        
+        # Return the actual key
+        
+        return ApiKeyCreateResponse(
+            id = db_api_key.id,
+            name = db_api_key.name,
+            api_key = api_key,
+            created_on = db_api_key.created_on
+        )
+        
+        
+        
+        
+        
 # Run and test.
 if __name__ == "__main__":
     import uvicorn

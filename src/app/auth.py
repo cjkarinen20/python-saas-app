@@ -40,6 +40,19 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     
     return encoded_jwt
 
+def create_refresh_token(data: dict, expires_delta: Optional[timedelta] = None):
+    to_encode = data.copy()
+    
+    if expires_delta:
+        expire = datetime.now(timezone.utc) + expires_delta
+    else:
+        expire = datetime.now(timezone.utc) + timedelta(minutes = REFRESH_TOKEN_EXPIRE_MINUTES)
+        
+    to_encode.update({"exp": expire, "type": "access"})
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm = ALGORITHM)
+    
+    return encoded_jwt
+
 def verify_token(token: str, token_type: str = "access") -> Optional[str]:
     # Verify token and return email
     try:
@@ -67,7 +80,7 @@ def verify_api_key(api_key: str, stored_hash: str) -> bool:
     computed_hash = hash_api_key(api_key)
     return hmac.compare_digest(computed_hash, stored_hash)
 
-async def get_current_user(
+async def get_user_from_api_key(
     credentials: HTTPAuthorizationCredentials = Depends(security),
     session: Session = Depends(get_session)
 ) -> User:
@@ -91,11 +104,11 @@ async def get_current_user(
     
     return user
 
-async def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
-    session: Session = Depends(get_session)
+async def get_user_from_api_key(
+        credentials: HTTPAuthorizationCredentials = Depends(security),
+        session: Session = Depends(get_session)
 ) -> tuple[User, ApiKey]:
-    # Get current userfrom JWT token
+    # Get current user from API key
     credentials_exception = HTTPException(
         status_code = status.HTTP_401_UNAUTHORIZED,
         detail = "Could not validate credentials",

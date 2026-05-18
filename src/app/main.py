@@ -181,7 +181,6 @@ def create_api_key(
             created_on = db_api_key.created_on
         )
         
-        
 @app.get("/api-keys", response_model = List[ApiKeyResponse])
 def list_api_keys(
     current_user: User= Depends(get_current_user),
@@ -206,6 +205,34 @@ def list_api_keys(
         )
         for key in api_keys
     ]
+        
+        
+@app.delete("/api-keys/{key_id}")
+def deactivate_api_key(
+    key_id: int,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session)
+):
+    
+    # Deactivate API Key (soft delete)
+    statement = select(ApiKey).where(
+        ApiKey.id == key_id.id,
+        ApiKey.user_id == current_user.id
+    )
+    
+    api_key = session.exec(statement).first()
+    
+    if not api_key:
+        raise HTTPException(
+            status_code = status.HTTP_404_NOT_FOUND,
+            detail = "API key not found."
+        )
+    
+    api_key.is_active = False
+    session.add(api_key)
+    session.commit()
+    
+    return {"message": "API key successfully deactivated."}
         
 # Run and test.
 if __name__ == "__main__":

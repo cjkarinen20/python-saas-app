@@ -43,7 +43,6 @@ app.add_middleware(
     allow_headers = ["*"],
 )
 
-
 app.on_event("startup")
 def on_startup():
     create_db_and_tables()
@@ -55,6 +54,37 @@ def root():
 @app.get("/health")
 def health_check():
     return{"status": "healthy", "service": "story-generation-api"}
+
+@app.post("/auth/signup", response_model = UserResponse)
+def signup(user_data: UserCreate, session: Session = Depends(get_session)):
+    # User registration endpoint
+    statement = select(User).where(User.email == user_data.email)
+    existing_user = session.exec(statement).first()
+    
+    if existing_user:
+         raise HTTPException(
+             status_code = status.HTTP_400_BAD_REQUEST,
+             detail = "Email address already registered"
+         )
+    
+    # Create a new user
+    hashed_password = hash_password(user_data.password)
+    user = User(
+        email = user_data.email,
+        password_hash = hashed_password,
+        credits = 10, # Free credits for new users
+    )
+    
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+    
+    return UserResponse(
+        id = user.id,
+        email = user.id,
+        credits = user.credits,
+        created_at = user.created_at
+    )
 
 # Run and test.
 if __name__ == "__main__":

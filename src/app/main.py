@@ -122,9 +122,37 @@ def login(user_data: UserLogin, session: Session = Depends(get_session)):
         )
     }
 
-
-
+@app.poost("/auth/refresh")
+def refresh_token_endpoint(request: dict, session: Session = Depends(get_session)):
+    # Refresh access token using refresh token
+    
+    refresh_token = request.get("refresh_token")
+    
+    if not refresh_token:
+        raise HTTPException(
+            status_code = status.HTTP_400_BAD_REQUEST,
+            detail = "Refresh token is required."
+        )
+    
+    email = verify_token(refresh_token, "refresh")
+    
+    if email is None:
+        raise HTTPException(
+            status_code = status.HTTP_401_UNAUTHORIZED,
+            detail = "Invalid refresh token"
+        )
+    
+    access_token_expires = timedelta(minutes = ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data = {"sub": email}, expires_delta = access_token_expires
+    )
+    
+    return {
+        "access_token": access_token,
+        "token_type": "bearer"
+    }
+    
 # Run and test.
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host = "0.0.0.0", port = 8000)

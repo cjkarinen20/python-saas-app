@@ -52,7 +52,17 @@ class UserResponse(SQLModel):
     credits: int
     created_on: datetime
     is_active: bool
-    
+
+class ApiKeyCreate(SQLModel):
+    name: str
+
+class ApiKeyResponse(SQLModel):
+    id: int
+    name: str
+    key_hash: str   # truncated for display
+    created_on: datetime
+    is_active: bool
+
 class ApiKeyCreateResponse(SQLModel):
     id: int
     name: str

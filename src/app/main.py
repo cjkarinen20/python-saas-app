@@ -174,7 +174,6 @@ def create_api_key(
         session.refresh(db_api_key)
         
         # Return the actual key
-        
         return ApiKeyCreateResponse(
             id = db_api_key.id,
             name = db_api_key.name,
@@ -183,8 +182,30 @@ def create_api_key(
         )
         
         
+@app.get("/api-keys", response_model = List[ApiKeyResponse])
+def list_api_keys(
+    current_user: User= Depends(get_current_user),
+    session: Session = Depends(get_session)
+):
+    # List user's API keys
+    statement = select(ApiKey).where(
+        ApiKey.user_id == current_user.id,
+        ApiKey.is_active == True
+    )
         
-        
+    api_keys = session.exec(statement).all()
+    
+    return [
+        ApiKeyResponse(
+            id = key.id,
+            name = key.name,
+            key_has = key.key_hash[:8] + "...", # Truncated for security
+            created_on = key.created_on,
+            is_active = key.is_active
+            
+        )
+        for key in api_keys
+    ]
         
 # Run and test.
 if __name__ == "__main__":

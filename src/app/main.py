@@ -24,6 +24,8 @@ from app.services import (
     CreditService, StoryGenerationService
 )
 from app.config import ACCESS_TOKEN_EXPIRE_MINUTES, REFRESH_TOKEN_EXPIRE_MINUTES
+from app import stripe_routes
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -47,6 +49,8 @@ app.add_middleware(
     allow_methods = ["*"],
     allow_headers = ["*"],
 )
+
+app.include_router(stripe_routes.router)
 
 app.on_event("startup")
 def on_startup():

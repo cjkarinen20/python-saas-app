@@ -224,6 +224,30 @@ def handle_payment_intent(intent_data: dict, db: Session):
         status_value = intent_data.get("payment_status"),
     )
 
+@router.post("/stripe/webhook/")
+async def stripe_webhook(request: Request, session: Session = Depends(get_session)):
+    if not STRIPE_WEBHOOK_SECRET:
+        raise HTTPException(
+            status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail = "Webhook secret not configured",
+        )
     
+    payload = await request.body()
+    sig_header = request.headers.get("stripe-signature")
+    
+    try:
+        event = stripe.Webhook.contruct_event(payload, sig_header, STRIPE_WEBHOOK_SECRET)
+    except stripe.error.SignatureVerificationError:
+        raise HTTPException(status_code = 400, detail = "Invalid signature")
+    
+    event_type = event.get("type")
+    data_object = event.get("data", {}).get("object", {})
+    
+    if event_type == "checkout.session.completed":
+        handle_checkout_completed(data_object, session)
+    elif event_type == "payment_intent.succeeded":
+        handle_payment_intent(data_object, session)
+        
+    return {"status": "ok"}
     
     

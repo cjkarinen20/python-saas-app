@@ -31,7 +31,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI( 
     title="Story Generation SaaS API",
     description="AI-powered story generation with credit system",
-    version="1.0.0"
+    version="1.0.0",
     lifespan = lifespan
 )
 
@@ -122,7 +122,7 @@ def login(user_data: UserLogin, session: Session = Depends(get_session)):
         )
     }
 
-@app.poost("/auth/refresh")
+@app.post("/auth/refresh")
 def refresh_token_endpoint(request: dict, session: Session = Depends(get_session)):
     # Refresh access token using refresh token
     
@@ -233,7 +233,17 @@ def deactivate_api_key(
     session.commit()
     
     return {"message": "API key successfully deactivated."}
-        
+
+@app.get("/auth/me", response_model = UserResponse)
+def get_current_user_info(current_user: User = Depends(get_current_user)):
+    return UserResponse(
+        id = current_user.id, # type: ignore
+        email = current_user.email,
+        credits = current_user.credits, 
+        created_on = current_user.created_on
+    )
+
+
 # Run and test.
 if __name__ == "__main__":
     import uvicorn

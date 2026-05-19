@@ -70,3 +70,30 @@ def _find_user(session_data: dict, db: Session) -> User | None:
         user = db.exec(statement).first()
         
     return user
+
+def _record_payment(
+    db: Session,
+    *,
+    user: User,
+    price_id: str,
+    payment_intent_id: str | None, 
+    checkout_session_id: str | None, 
+    customer_id: str | None,
+    amount: int | None,
+    status_value: str | None,
+):
+    payment = Payment(
+        user_id = user.id, # Type: ignore[arg-type]
+        stripe_customer_id = customer_id or user.stripe_customer_id or "",
+        stripe_payment_intent_id = payment_intent_id or checkout_session_id or "",
+        stripe_checkout_session_id = checkout_session_id,
+        price_id = price_id,
+        credits_granted = PRICE_TO_CREDITS[price_id],
+        amount = amount or 0,
+        currency = "usd",
+        status = status_value or "paid"
+    )
+    db.add(user)
+    db.add(payment)
+    db.commit()
+    

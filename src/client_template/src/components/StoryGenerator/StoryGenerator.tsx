@@ -26,8 +26,20 @@ const StoryGenerator: React.FC = () => {
   // 3. On success, extract credits from response and update state
   const fetchCredits = useCallback(async () => {
     if (!apiKey) return;
+    try {
+      const response = await fetch('http://localhost:8000/v1/me/credits', {
+        headers: {
+          'Authorization': 'Bearer ${apiKey}',
+        },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setCredits(data.credits);
+      }
+    } catch (error) {
+      console.error('Error fetching credits:', error);
+    }
 
-    // TODO: Implement API call to GET /v1/me/credits
     console.log('Fetch credits called - API integration needed');
   }, [apiKey]);
 
@@ -55,9 +67,34 @@ const StoryGenerator: React.FC = () => {
     setError('');
     setStory('');
 
-    // TODO: Implement API call to POST /v1/story/generate
-    console.log('Generate story called - API integration needed');
-
+    try {
+      const response = await fetch('http://localhost:8000/v1/story/generate', {
+        method: 'POST', 
+        headers: {
+          'Authorization': 'Bearer ${apiKey}',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          prompt: prompt,
+          style: style
+        }),
+      });
+      if (response.ok) {
+        const data: GeneratedStory = await response.json();
+        setStory(data.story);
+        setCredits(data.remaining_credits);
+      } else if (response.status === 402) {
+        setError('Insufficient credits to generate story.')
+      } else if (response.status === 401) {
+        setError('Invalid API key.');
+      } else {
+        const errorData = await response.json()
+        setError(errorData.detail || 'Failed to generate story');
+      }
+    } catch(error){
+      setError('Network error. Please try again.');
+      console.error('Story generation error:', error);
+    }
     setLoading(false);
   };
 

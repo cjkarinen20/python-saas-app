@@ -163,7 +163,7 @@ const Dashboard: React.FC = () => {
     // TODO: Implement API call to GET /v1/me/credits with API key
     setCredits(user?.credits || 0);
   }, [user?.credits]);
-
+  
   useEffect(() => {
     fetchApiKeys();
     fetchCredits();

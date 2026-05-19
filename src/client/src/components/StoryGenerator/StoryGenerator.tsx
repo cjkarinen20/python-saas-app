@@ -17,7 +17,7 @@ const StoryGenerator: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [apiKey, setApiKey] = useState('');
-  const [credits, setCredits] = useState(0);
+  const [credits, setCredits] = useState(user?.credits ?? 0);
 
   // ==== TODO: BACKEND API INTEGRATION - Fetch Current Credits ====
   // Implement function to fetch user's current credit balance:
@@ -46,6 +46,13 @@ const StoryGenerator: React.FC = () => {
   useEffect(() => {
     fetchCredits();
   }, [fetchCredits]);
+
+  useEffect(() => {
+    if (!apiKey) {
+      setCredits(user?.credits ?? 0);
+    }
+  }, [apiKey, user?.credits]);
+
 
   // ==== TODO: BACKEND API INTEGRATION - Generate Story ====
   // Implement the main story generation function (costs 1 credit):

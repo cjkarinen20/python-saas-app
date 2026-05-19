@@ -219,6 +219,9 @@ const Dashboard: React.FC = () => {
               <span className="credits-label">remaining</span>
             </div>
             <p>Each story generation costs 1 credit</p>
+            <Link to="/billing" className="primary-btn">
+              Buy Credits
+            </Link>
           </div>
 
           <div className="card api-keys-card">

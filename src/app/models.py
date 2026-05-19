@@ -5,9 +5,11 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Optional, List
 
+
+def get_utc_now():
+    return datetime.now(timezone.utc)
 class User(SQLModel, table=True):
-    __tablename__ = "app_users"
-    
+    __tablename__ = 'user'
     id: Optional[int] = Field(default=None, primary_key=True)
     email: str = Field(unique = True, index = True)
     password_hash: str
@@ -19,7 +21,8 @@ class User(SQLModel, table=True):
     usage_events: List["UsageEvent"] = Relationship(back_populates = "user")
     
 class ApiKey(SQLModel, table = True):
-    id; Optional[int] = Field(default = None, primary_key = True)
+    __tablename__ = 'apikey'
+    id: Optional[int] = Field(default = None, primary_key = True)
     user_id: int = Field(foreign_key = "user.id")
     key_hash: str 
     name: str
@@ -29,14 +32,14 @@ class ApiKey(SQLModel, table = True):
     
 class UsageEvent(SQLModel, table = True):
     id: Optional[int] = Field(default = None, primary_key = True)
-    user_id: int = Field(foreign_key = "user_id")
+    user_id: int = Field(foreign_key = "user.id")
     api_key_id: int = Field(foreign_key = "apikey.id")
     prompt: str
     story: str = Field(default = "") # Store the generated story
     tokens_used: int = Field(default = 0)
     cost_credits: int = Field(default = 1)
     created_on: datetime = Field(default_factory = datetime.now(timezone.utc))
-    user: User = Relationship(back_populates = "usage events")
+    user: User = Relationship(back_populates = "usage_events")
     
 class UserCreate(SQLModel):
     email: str

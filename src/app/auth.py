@@ -90,7 +90,7 @@ async def get_current_user(
         detail = "Could not validate credentials",
         headers = {"WWW-Authenticate": "Bearer"},
     )
-    email = verify_token(credentials = credentials)
+    email = verify_token(credentials.credentials)
     
     if email is None: 
         raise credentials_exception

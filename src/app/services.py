@@ -25,3 +25,56 @@ class CreditService:
         user.credits += amount
         session.add(user)
         session.commit()
+        
+class StoryGenerationService:
+    # Handles AI story generation using the Ollama API.
+    
+    @staticmethod
+    def generate_story(prompt: str, style: str = "adventure") -> Dict[str, Any]:
+        # Generate story using Ollama; Create the string prompt for the LLM.
+        system_prompt = f"""You are a creative storyteller. 
+        Generate a complete engaging {style} story based on the user's prompt.
+        Requirements:
+        - Write a complete story with a beginning, middle, and end.
+        - Keep it between 300-800 word.
+        - Make it engaging and well-structured. 
+        - Match the requested style: {style}.
+        
+        User prompt: {prompt}
+        
+        Write a complete story: """
+        
+        # Ollama API request
+        response = requests.post(
+            f"{OLLAMA_BASE_URL}/api/generate",
+            json = {
+                "model": "gemma3:4b",
+                "prompt": system_prompt,
+                "stream": False,
+                "options": {
+                    "num_predict": 2000,   # Max tokens for complete stories.
+                    "temperature": 0.8,    # Creative but not too random.
+                    "top_k": 40,
+                    "top_p": 0.9,
+                    "repeat_penalty": 1.1
+                }
+            },
+            timeout = 120 # 2 minute timeout for generation.
+        )
+        
+        if response.status_code != 200:
+            raise HTTPException(
+                status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail = f"Ollama API error: {response.status_code}"
+            )
+        
+        result = response.json()
+        story = result.get("response", "").strip()
+        
+        if not story:
+            raise HTTPException(
+                status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
+                #detail = f"Ollama API error: {response.status_code}"
+                detail = "Failed to generate story - empty response"
+            )
+            

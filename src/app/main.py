@@ -335,6 +335,17 @@ def get_usage(
         )
         for event in usage_events
     ]
+    
+    @app.get("/health/db")
+    def health_check_db(session: Session = Depends(get_session)):
+        try: 
+            session.exec(select(1)).first()
+            return {"db": "ok"}
+        except Exception:
+            raise HTTPException(
+                status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail = "Database unavailable.",
+            )
 
 
 # Run and test.

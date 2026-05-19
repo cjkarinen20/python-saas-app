@@ -104,7 +104,6 @@ const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       return false;
     }
   };
-
   // ==== TODO: BACKEND API INTEGRATION - Refresh Access Token ====
   // Implement token refresh function that:
   // 1. Makes POST request to 'http://localhost:8000/auth/refresh'
@@ -115,9 +114,32 @@ const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const refreshAccessToken = useCallback(async (): Promise<boolean> => {
     if (!refreshToken) return false;
 
-    // TODO: Implement API call to /auth/refresh
-    console.log('Token refresh called - API integration needed');
-    return false;
+    try {
+        const response = await fetch('http://localhost:8000/auth/refresh', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({refresh_token: refreshToken}),
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setToken(data.access_token);
+          localStorage.setItem('authToken', data.access_token);
+          return true;
+        } else {
+          // Refresh token is invalid, logout
+          setUser(null);
+          setToken(null);
+          setRefreshToken(null);
+          localStorage.removeItem('authToken');
+          localStorage.removeItem('refreshToken');
+          return false;
+        }
+      } catch (error) {
+        console.error('Token refresh error:', error);
+        return false;
+      }
   }, [refreshToken]);
 
   // ==== TODO: BACKEND API INTEGRATION - Refresh User Data ====
@@ -129,9 +151,37 @@ const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // 5. If refresh fails, clear all auth data
   const refreshUser = useCallback(async (): Promise<void> => {
     if (!token) return;
+    try {
+      const response = await fetch('http://localhost:8000/auth/me', {
+        method: 'GET',
+        headers: {
+          'Authorization': 'Bearer ${token}',
+          'Content-Type': 'application/json',
+        },
+      });
 
-    // TODO: Implement API call to /auth/me
-    console.log('Refresh user called - API integration needed');
+      if (response.ok) {
+        const userData = await response.json();
+        setUser(userData);
+      } else {
+        console.error('Failed t ofetch user data.');
+        // If token is invalid, try to refresh
+        if (response.status == 401) {
+          const refreshed = await refreshAccessToken();
+          if (!refreshed) {
+            // Refresh failed, user needs to login again
+            setUser(null);
+            setToken(null);
+            setRefreshToken(null);
+            localStorage.removeItem('authToken');
+            localStorage.removeItem('refreshToken');
+          }
+          // Don't retry here. The new token will trigger this function again via useEffect
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching user data:', error);
+    }
   }, [token, refreshAccessToken]);
 
   useEffect(() => {

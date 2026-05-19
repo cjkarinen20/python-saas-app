@@ -96,4 +96,49 @@ def _record_payment(
     db.add(user)
     db.add(payment)
     db.commit()
-    
+
+@router.post("/checkout")
+def create_checkout_session(
+    payload: dict, user: User = Depends(get_current_user), session: Session = Depends(get_session)
+):
+    if not STRIPE_SECRET_KEY:
+        raise HTTPException(
+            status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail = "Stripe secret key not configured.",
+        )
+        
+        price_id = payload.get("price_id")
+        success_url = payload.get("success_url") or "http://localhost:3000/dashboard?payment=success"
+        cancel_url = payload.get("cancel_url") or "http://localhost:3000/dashboard?payment=cancel"
+        
+        if price_id not in PRICE_TO_CREDITS:
+            raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST, detail = "Invalid price id")
+        
+        customer_id = user.stripe_customer_id
+        checkout_params = {
+            "mode": "payment",
+            "payment_method_types": ["card"],
+            "line_items": [{"price": price_id, "quantity": 1}],
+            "success_url": success_url,
+            "cancel_url": cancel_url,
+            "client_reference_id": str(user.id),
+            "metadata": {"price_id": price_id},
+        }
+        
+        if not customer_id:
+            customer = stripe.Customer.create(email = user.email)
+            customer_id = customer.id
+            user.stripe_customer_id = customer_id
+            session.add(user)
+            session.commit()
+            session.refresh(user)
+            
+        if customer_id:
+            checkout_params["customer"] = customer_id
+        
+        else:
+            checkout_params["customer_email"] = user.email
+            
+        checkout_session = stripe.checkout.Session.create(**checkout_params)
+        
+        return {"checkout_url": checkout_session.url, "session_id": checkout_session.id}

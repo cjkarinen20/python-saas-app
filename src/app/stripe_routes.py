@@ -175,3 +175,55 @@ def handle_checkout_completed(session_data: dict, db: Session):
         amount = session_data.get("amount_total"),
         status_value = session_data.get("payment_status"),
     )
+
+def handle_payment_intent(intent_data: dict, db: Session):
+    payment_intent_id = intent_data.get("id")
+    if not payment_intent_id:
+        return
+    
+    existing = db.exec(
+        select(Payment).where(Payment.stripe_payment_intent_id == payment_intent_id)
+    ).first()
+    
+    if existing:
+        return
+    
+    metadata = intent_data.get("metadata", {}) or {}
+    price_id = metadata.get("price_id")
+    user_id_raw = metadata.get("user_id") or metadata.get("client_reference_id")
+    email = intent_data.get("receipt_email")
+    
+    user = None
+    if user_id_raw:
+        try:
+            user = db.get(User, int(user_id_raw))
+            
+        except (TypeError, ValueError):
+            user = None
+    
+    if not user and email:
+        statement = select(User).where(User.email == email)
+        user = db.exec(statement).first()
+        
+    if not user or not price_id or price_id not in PRICE_TO_CREDITS:
+        return
+
+    user.credits += PRICE_TO_CREDITS[price_id]
+    customer_id = intent_data.get("customer")
+    if customer_id and not user.stripe_customer_id:
+        user.stripe_customer_id = customer_id
+    
+    _record_payment(
+        db,
+        user = user,
+        price_id = price_id,
+        payment_intent_id = payment_intent_id,
+        checkout_session_id = metadata.get("checkout_session_id"),
+        customer_id = customer_id,
+        amount = intent_data.get("amount_total"),
+        status_value = intent_data.get("payment_status"),
+    )
+
+    
+    
+    

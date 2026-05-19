@@ -26,3 +26,47 @@ PRICE_TO_CREDITS = {
     ]
     if pid
 }
+
+def _extract_price_id(session_data: dict) -> str | None:
+    metadata_price = session_data.get("metadata", {}).get("price_id")
+    if metadata_price:
+        return metadata_price
+    
+    line_items = session_data.get("line_items", {})
+    items = line_items.get("data") if isinstance(line_items, dict) else None
+    
+    if items:
+        price_obj = items[0].get("price") or {}
+        return price_obj.get("id")
+
+def _get_price_id(session_data: dict) -> str | None: 
+    price_id = _extract_price_id(session_data)
+    if price_id:
+        return price_id
+    
+    session_id = session_data.get("id")
+    if not session_id:
+        return None
+    
+    expanded = stripe.checkout.Session.retrieve(
+        session_id, expand = ["line_items.data.price"]
+    )
+    return _extract_price_id(expanded)
+
+def _find_user(session_data: dict, db: Session) -> User | None:
+    user_id_raw = session_data.get("client_reference_id")
+    email = session_data.get("customer_details", {}).get("email")
+    
+    user = None
+    
+    if user_id_raw:
+        try:
+            user = db.get(User, int(user_id_raw))
+        except (TypeError, ValueError):
+            user = None
+        
+    if not user and email:
+        statement = select(User).where(User.email == email)
+        user = db.exec(statement).first()
+        
+    return user

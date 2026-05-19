@@ -11,7 +11,8 @@ from app.models import (
     User, ApiKey, UsageEvent,
     UserCreate, UserLogin, UserResponse,
     ApiKeyCreate, ApiKeyResponse, ApiKeyCreateResponse,
-    StoryRequest, StoryResponse
+    StoryRequest, StoryResponse, CreditsResponse,
+    UsageResponse
 )
 from app.auth import (
     hash_password, verify_password, create_access_token, create_refresh_token,
@@ -294,6 +295,30 @@ def generate_story(
         # Refund credits if generation fails
         CreditService.refund_credits(session, user, 1)
         raise e 
+
+@app.get("/v1/me/credits", response_model = CreditsResponse)
+def get_credits(user_and_key: tuple[User, ApiKey] = Depends(get_user_from_api_key)):
+    # Get user's credit balance
+    user, _ = user_and_key
+    
+    return CreditsResponse(credits = user.credits)
+
+@app.get("/v1/me/usage", response_model = List[UsageResponse])
+def get_usage(
+    skip: int = Query(0, ge = 0),
+    limit: int = Query(10, ge = 1, le = 100),
+    user_and_key: tuple[User, ApiKey] = Depends(get_user_from_api_key),
+    session: Session = Depends(get_session)  
+):
+
+    # Get usage history for API key authentication
+    user, _ = user_and_key
+    
+    statement = select(UsageEvent).where(
+        UsageEvent.user_id == user.id
+    ).order_by(UsageEvent.created_on.desc()).offset(skip).limit(limit) # Type: ignore
+    
+    usage_events = session.exec(statement).all()
 
 
 # Run and test.

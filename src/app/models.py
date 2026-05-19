@@ -8,6 +8,7 @@ from typing import Optional, List
 
 def get_utc_now():
     return datetime.now(timezone.utc)
+
 class User(SQLModel, table=True):
     __tablename__ = 'user'
     id: Optional[int] = Field(default=None, primary_key=True)
@@ -15,10 +16,26 @@ class User(SQLModel, table=True):
     password_hash: str
     credits: int = Field(default = 10) # Free credits for new users
     created_on: datetime = Field(default_factory = datetime.now(timezone.utc))
+    stripe_customer_id: Optional[str] = Field(default = None, index = True, unique = True)
     
     # Relationships
     api_keys: List["ApiKey"] = Relationship(back_populates = "user")
     usage_events: List["UsageEvent"] = Relationship(back_populates = "user")
+    payments: List["Payment"] = Relationship(back_populates = "user")
+    
+class Payment(SQLModel, table = True):
+    id: Optional[int] = Field(default = None, primary_key = True)
+    user_id: int = Field(foreign_key = "user.id")
+    stripe_customer_id: str
+    stripe_payment_int_id: str = Field(index = True, unique = True)
+    stripe_checkout_session_id: Optional[str] = Field(default = None, index = True, unique = True)
+    price_id: str
+    credits_granted: int
+    amount: int # In cents
+    currency: str = Field(default = "usd")
+    status: str
+    created_on: datetime = Field(default_factory = get_utc_now)
+    user: User = Relationship(back_populates = "payments")
     
 class ApiKey(SQLModel, table = True):
     __tablename__ = 'apikey'

@@ -39,9 +39,19 @@ const Dashboard: React.FC = () => {
   // 2. Include 'Authorization: Bearer {token}' header
   // 3. On success, update apiKeys state with response data
   const fetchApiKeys = useCallback(async () => {
-    // TODO: Implement API call to GET /api-keys
-    console.log('Fetch API keys called - API integration needed');
-    setApiKeys([]);
+    try {
+      const response = await fetch('http://localhost:8000/api-keys', {
+        headers: {
+          'Authorization': 'Bearer ${token}',
+        },
+      });
+      if (response.ok) {
+        const data = await response.json()
+        setApiKeys(data);
+      }
+    } catch (error) {
+      console.error('Error fetching API keys:', error);
+    }
   }, [token]);
 
   // ==== TODO: BACKEND API INTEGRATION - Create New API Key ====
@@ -55,8 +65,25 @@ const Dashboard: React.FC = () => {
     if (!newKeyName.trim()) return;
 
     setLoading(true);
-    // TODO: Implement API call to POST /api-keys
-    console.log('Create API key called - API integration needed');
+    try {
+      const response = await fetch('http://localhost:8000/api-keys', {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer ${token}',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({name: newKeyName})
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setNewlyCreatedKey(data.api_key); // Store the newly created API key
+        setNewKeyName('');
+        setShowCreateKey(false);
+        fetchApiKeys();
+      }
+    } catch (error) {
+      console.error('Error creating API key:', error);
+    }
     setLoading(false);
   };
 
@@ -74,8 +101,23 @@ const Dashboard: React.FC = () => {
 
     if (!confirmed) return;
 
-    // TODO: Implement API call to DELETE /api-keys/{keyId}
-    console.log('Deactivate API key called - API integration needed');
+    try {
+      const response = await fetch('http://localhost:8000/api-keys/${keyId}', {
+        method: 'DELETE',
+        headers: {
+          'Authorization': 'Bearer ${token}',
+        },
+      });
+      if (response.ok) {
+        fetchApiKeys();
+        alert('API key deleted successfully!');
+      } else {
+        alert('Failed to delete API key. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error deactivating API key:', error);
+      alert('Error deleting API key. Please try again.');
+    }
   };
 
   // ==== TODO: BACKEND API INTEGRATION - Fetch Usage History ====
@@ -85,15 +127,30 @@ const Dashboard: React.FC = () => {
   // 3. On success, update usage state with response data
   // 4. Handle case when token is not available
   const fetchUsage = useCallback(async () => {
-    if (!token) {
-      console.log('No auth token available for fetching usage');
+    try {
+          if (!token) {
+            console.log('No auth token available for fetching usage');
+            setUsage([]);
+            return;
+          }
+          const response = await fetch('http://localhost:8000/auth/me/usage?limit=20', {
+            headers: {
+              'Authorization': 'Bearer ${token}',
+              'Content-Type': 'application/json',
+          },
+        });
+        if (response.ok) {
+          const data = await response.json();
+          console.log('Fetched usage history:', data);
+          setUsage(data);
+        } else {
+          console.error('Failed to fetch usage history:', response.status, response.statusText);
+          setUsage([]);
+        }
+    } catch (error) {
+      console.error('Error fetching usage history:', error);
       setUsage([]);
-      return;
     }
-
-    // TODO: Implement API call to GET /auth/me/usage
-    console.log('Fetch usage called - API integration needed');
-    setUsage([]);
   }, [token]);
 
   // ==== TODO: BACKEND API INTEGRATION - Fetch Current Credits ====

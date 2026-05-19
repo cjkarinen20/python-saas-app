@@ -107,38 +107,71 @@ def create_checkout_session(
             detail = "Stripe secret key not configured.",
         )
         
-        price_id = payload.get("price_id")
-        success_url = payload.get("success_url") or "http://localhost:3000/dashboard?payment=success"
-        cancel_url = payload.get("cancel_url") or "http://localhost:3000/dashboard?payment=cancel"
+    price_id = payload.get("price_id")
+    success_url = payload.get("success_url") or "http://localhost:3000/dashboard?payment=success"
+    cancel_url = payload.get("cancel_url") or "http://localhost:3000/dashboard?payment=cancel"
         
-        if price_id not in PRICE_TO_CREDITS:
-            raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST, detail = "Invalid price id")
+    if price_id not in PRICE_TO_CREDITS:
+        raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST, detail = "Invalid price id")
         
-        customer_id = user.stripe_customer_id
-        checkout_params = {
-            "mode": "payment",
-            "payment_method_types": ["card"],
-            "line_items": [{"price": price_id, "quantity": 1}],
-            "success_url": success_url,
-            "cancel_url": cancel_url,
-            "client_reference_id": str(user.id),
-            "metadata": {"price_id": price_id},
-        }
+    customer_id = user.stripe_customer_id
+    checkout_params = {
+        "mode": "payment",
+        "payment_method_types": ["card"],
+        "line_items": [{"price": price_id, "quantity": 1}],
+        "success_url": success_url,
+        "cancel_url": cancel_url,
+        "client_reference_id": str(user.id),
+        "metadata": {"price_id": price_id},
+    }
         
-        if not customer_id:
-            customer = stripe.Customer.create(email = user.email)
-            customer_id = customer.id
-            user.stripe_customer_id = customer_id
-            session.add(user)
-            session.commit()
-            session.refresh(user)
+    if not customer_id:
+        customer = stripe.Customer.create(email = user.email)
+        customer_id = customer.id
+        user.stripe_customer_id = customer_id
+        session.add(user)
+        session.commit()
+        session.refresh(user)
             
-        if customer_id:
-            checkout_params["customer"] = customer_id
+    if customer_id:
+        checkout_params["customer"] = customer_id
         
-        else:
-            checkout_params["customer_email"] = user.email
+    else:
+        checkout_params["customer_email"] = user.email
             
-        checkout_session = stripe.checkout.Session.create(**checkout_params)
+    checkout_session = stripe.checkout.Session.create(**checkout_params)
         
-        return {"checkout_url": checkout_session.url, "session_id": checkout_session.id}
+    return {"checkout_url": checkout_session.url, "session_id": checkout_session.id}
+
+def handle_checkout_completed(session_data: dict, db: Session):
+    price_id = _get_price_id(session_data)
+    if not price_id or price_id not in PRICE_TO_CREDITS:
+        return
+    
+    payment_intent_id = session_data.get("payment_intent")
+    if payment_intent_id:
+        existing = db.exec(
+            select(Payment).where(Payment.stripe_payment_intent_id == payment_intent_id)
+        ).first()
+        if existing:
+            return
+        
+    user = _find_user(session_data, db)
+    if not user:
+        return
+    
+    user.credits += PRICE_TO_CREDITS[price_id]
+    customer_id = session_data.get("customer")
+    
+    if customer_id and not user.stripe_customer_id:
+        user.stripe_customer_id = customer_id
+        
+    _record_payment(
+        db,
+        user = user,
+        price_id = price_id,
+        payment_intent_id = session_data.get("id"),
+        customer_id = customer_id,
+        amount = session_data.get("amount_total"),
+        status_value = session_data.get("payment_status"),
+    )

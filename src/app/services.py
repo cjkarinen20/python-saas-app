@@ -44,37 +44,81 @@ class StoryGenerationService:
         
         Write a complete story: """
         
-        # Ollama API request
-        response = requests.post(
-            f"{OLLAMA_BASE_URL}/api/generate",
-            json = {
-                "model": "gemma3:4b",
-                "prompt": system_prompt,
-                "stream": False,
-                "options": {
-                    "num_predict": 2000,   # Max tokens for complete stories.
-                    "temperature": 0.8,    # Creative but not too random.
-                    "top_k": 40,
-                    "top_p": 0.9,
-                    "repeat_penalty": 1.1
-                }
-            },
-            timeout = 120 # 2 minute timeout for generation.
-        )
-        
-        if response.status_code != 200:
+        try:
+            # Ollama API request
+            response = requests.post(
+                f"{OLLAMA_BASE_URL}/api/generate",
+                json = {
+                    "model": "gemma3:4b",
+                    "prompt": system_prompt,
+                    "stream": False,
+                    "options": {
+                        "num_predict": 2000,   # Max tokens for complete stories.
+                        "temperature": 0.8,    # Creative but not too random.
+                        "top_k": 40,
+                        "top_p": 0.9,
+                        "repeat_penalty": 1.1
+                    }
+                },
+                timeout = 120 # 2 minute timeout for generation.
+            )
+            
+            if response.status_code != 200:
+                raise HTTPException(
+                    status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail = f"Ollama API error: {response.status_code}"
+                )
+            
+            result = response.json()
+            story = result.get("response", "").strip()
+            
+            if not story:
+                raise HTTPException(
+                    status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    #detail = f"Ollama API error: {response.status_code}"
+                    detail = "Failed to generate story - empty response"
+                )
+            
+            # Token count
+            tokens_used = len(story.split())
+            return {
+                "story": story,
+                "tokens_used": tokens_used,
+                "model_used": "gemma3:4b",
+                "style": style
+            }
+            
+        except requests.exceptions.Timeout:
             raise HTTPException(
-                status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail = f"Ollama API error: {response.status_code}"
+                status_code = status.HTTP_504_GATEWAY_TIMEOUT,
+                detail = "Story generation timed out. Please try again."
+            )
+
+        except requests.exceptions.RequestException as e:
+            raise HTTPException(
+                status_code = status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail = f"Ollama service unavailable: {str(e)}"
             )
         
-        result = response.json()
-        story = result.get("response", "").strip()
-        
-        if not story:
-            raise HTTPException(
-                status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
-                #detail = f"Ollama API error: {response.status_code}"
-                detail = "Failed to generate story - empty response"
+        @staticmethod
+        def log_usage(
+            session: Session,
+            user: User,
+            api_key: ApiKey,
+            prompt: str,
+            story: str,
+            tokens_used: int,
+            cost_credits: int
+        ):
+            usage_event = UsageEvent(
+                user_id = user.id,        # type: ignore
+                api_key_id = api_key.id,  # type: ignore
+                prompt = prompt,
+                story = story,
+                tokens_used = tokens_used,
+                cost_credits = cost_credits
             )
+            
+            session.add(usage_event)
+            session.commit()
             

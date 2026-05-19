@@ -319,6 +319,18 @@ def get_usage(
     ).order_by(UsageEvent.created_on.desc()).offset(skip).limit(limit) # Type: ignore
     
     usage_events = session.exec(statement).all()
+    
+    return [
+        UsageResponse(
+            id = event.id, # Type: ignore
+            prompt = event.prompt,
+            story = event.story,
+            tokens_used = event.tokens_used, 
+            cost_credits = event.cost_credits,
+            created_on = event.created_on
+        )
+        for event in usage_events
+    ]
 
 
 # Run and test.

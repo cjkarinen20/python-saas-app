@@ -10,7 +10,8 @@ from contextlib import asynccontextmanager
 from app.models import (
     User, ApiKey, UsageEvent,
     UserCreate, UserLogin, UserResponse,
-    ApiKeyCreate, ApiKeyResponse, ApiKeyCreateResponse
+    ApiKeyCreate, ApiKeyResponse, ApiKeyCreateResponse,
+    StoryRequest, StoryResponse
 )
 from app.auth import (
     hash_password, verify_password, create_access_token, create_refresh_token,
@@ -18,6 +19,9 @@ from app.auth import (
     get_current_user, get_user_from_api_key
 )
 
+from app.services import (
+    CreditService, StoryGenerationService
+)
 from app.config import ACCESS_TOKEN_EXPIRE_MINUTES, REFRESH_TOKEN_EXPIRE_MINUTES
 
 @asynccontextmanager
@@ -242,6 +246,54 @@ def get_current_user_info(current_user: User = Depends(get_current_user)):
         credits = current_user.credits, 
         created_on = current_user.created_on
     )
+
+@app.post("/v1/story/generate", response_model = StoryResponse)
+def generate_story(
+    story_request: StoryRequest,
+    user_and_key: tuple[User, ApiKey] = Depends(get_user_from_api_key),
+    session: Session = Depends(get_session)
+):
+    # Generate story endpoint - requires API key authentication
+    user, api_key = user_and_key
+
+    # Check and deduct credits
+    if not CreditService.deduct_credits(session, user, 1):
+        raise HTTPException(
+            status_code = status.HTTP_402_PAYMENT_REQUIRED,
+            detail = "Insufficient Credits"
+        )
+    
+    try:
+        # Generate story
+        result = StoryGenerationService.generate_story(
+            story_request.prompt,
+            story_request.style or "adventure"
+        )
+        
+        StoryGenerationService.log_usage(
+            session = session,
+            user = user,
+            api_key = api_key,
+            prompt = story_request.prompt,
+            story = result["story"],
+            tokens_used = result["tokens_used"],
+            cost_credits = 1
+        )
+
+        # Refresh user to get updated credits
+        session.refresh(user)
+        
+        return StoryResponse(
+            story = result["story"],
+            tokens_used = result["tokens_used"],
+            credits_used = 1,
+            remaining_credits = user.credits
+        )
+        
+    except Exception as e:
+        # Refund credits if generation fails
+        CreditService.refund_credits(session, user, 1)
+        raise e 
 
 
 # Run and test.
